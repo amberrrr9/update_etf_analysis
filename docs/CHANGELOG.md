@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 > For user-friendly release highlights, see the [GitHub Releases](https://github.com/ZhuLinsen/daily_stock_analysis/releases) page.
 
 ## [Unreleased]
+- [改进] 全市场主要指数在 AkShare 未返回真实行情时显示数据不可用，不再回退展示样例涨跌幅。
 - [新功能] 新增轻量 ETF 研究开发 API 入口，便于本地只启动 AkShare 概览接口而不加载完整旧后端。
 - [新功能] 新增 AkShare 驱动的 ETF 全市场概览 API，并让前端首页优先读取真实市场数据、失败时回退样例数据。
 - [改进] ETF 研究首页调整为全市场视角，顶部仅保留全市场入口，行业详情改为从首页行业卡片跳转。

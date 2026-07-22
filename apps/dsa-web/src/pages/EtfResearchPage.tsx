@@ -65,11 +65,11 @@ type MarketOverview = {
   note: string;
 };
 
-const fallbackMarketIndices: MarketIndex[] = [
-  { name: '沪深300', code: '000300.SH', change: '+0.42%', turnover: '2,846 亿', tone: 'up' },
-  { name: '中证500', code: '000905.SH', change: '-0.18%', turnover: '1,924 亿', tone: 'down' },
-  { name: '创业板指', code: '399006.SZ', change: '+1.16%', turnover: '2,103 亿', tone: 'up' },
-  { name: '科创50', code: '000688.SH', change: '+1.88%', turnover: '687 亿', tone: 'up' },
+const unavailableMarketIndices: MarketIndex[] = [
+  { name: '沪深300', code: '000300.SH', change: '不可用', turnover: '不可用', tone: 'flat' },
+  { name: '中证500', code: '000905.SH', change: '不可用', turnover: '不可用', tone: 'flat' },
+  { name: '创业板指', code: '399006.SZ', change: '不可用', turnover: '不可用', tone: 'flat' },
+  { name: '科创50', code: '000688.SH', change: '不可用', turnover: '不可用', tone: 'flat' },
 ];
 
 const fallbackMarketOverview: MarketOverview[] = [
@@ -79,8 +79,8 @@ const fallbackMarketOverview: MarketOverview[] = [
   { label: '风险温度', value: '中性偏暖', note: '波动未显著放大' },
 ];
 
-const fallbackMarketSummary =
-  '今日全市场不是单一指数推动：创业板与科创相对更强，行业上涨家数超过半数，ETF 成交额较近20日均值放大。因此首页优先提示可继续跟踪的行业线索，而不是给出买卖判断。';
+const unavailableMarketSummary =
+  'AkShare 暂未返回可用主要指数数据。为避免误导，主要指数区域不展示样例涨跌幅；请在数据源恢复后刷新。';
 
 const focusIndustries: FocusIndustry[] = [
   {
@@ -204,17 +204,20 @@ const EtfResearchPage: React.FC = () => {
     void loadMarketData();
   }, []);
 
+  const hasRealMarketIndices = Boolean(marketData?.marketIndices.length);
   const resolvedMarketIndices = useMemo(
-    () => (marketData?.marketIndices.length ? marketData.marketIndices : fallbackMarketIndices),
+    () => (marketData?.marketIndices.length ? marketData.marketIndices : unavailableMarketIndices),
     [marketData]
   );
   const resolvedMarketOverview = useMemo(
     () => (marketData?.overview.length ? marketData.overview : fallbackMarketOverview),
     [marketData]
   );
-  const marketSummary = marketData?.summary || fallbackMarketSummary;
+  const marketSummary = hasRealMarketIndices ? marketData?.summary : unavailableMarketSummary;
   const dataDate = marketData?.dataDate || '2026-07-21';
-  const dataSourceLabel = marketData ? 'AkShare' : '样例数据';
+  const dataSourceLabel = marketData
+    ? hasRealMarketIndices ? 'AkShare 真实指数' : 'AkShare 部分可用'
+    : '等待数据';
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -331,12 +334,12 @@ const EtfResearchPage: React.FC = () => {
                 {marketSummary}
                 {marketDataError ? (
                   <span className="mt-2 block text-xs text-amber-600">
-                    AkShare 暂不可用，当前展示前端样例数据：{marketDataError}
+                    AkShare 接口请求失败，市场环境总览保留前端占位数据：{marketDataError}
                   </span>
                 ) : null}
                 {marketData?.errors.length ? (
                   <span className="mt-2 block text-xs text-amber-600">
-                    部分 AkShare 数据未返回：{marketData.errors.join('；')}
+                    部分 AkShare 数据未返回；对应区域不会展示样例行情：{marketData.errors.join('；')}
                   </span>
                 ) : null}
               </div>
