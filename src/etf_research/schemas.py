@@ -102,3 +102,51 @@ class IndustryKnowledge:
     related_etfs: List[str] = field(default_factory=list)
     major_companies: List[str] = field(default_factory=list)
     risk_factors: List[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class MarketIndexSnapshot:
+    """Display-ready snapshot for a broad market or style index."""
+
+    name: str
+    code: str
+    change: str
+    turnover: str
+    tone: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class MarketOverviewItem:
+    """One market-wide observation for the ETF research homepage."""
+
+    label: str
+    value: str
+    note: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class EtfMarketOverview:
+    """AkShare-backed full-market overview for the ETF research homepage."""
+
+    data_date: str
+    source: str
+    market_indices: List[MarketIndexSnapshot]
+    overview: List[MarketOverviewItem]
+    summary: str
+    errors: List[str] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "data_date": self.data_date,
+            "source": self.source,
+            "market_indices": [item.to_dict() for item in self.market_indices],
+            "overview": [item.to_dict() for item in self.overview],
+            "summary": self.summary,
+            "errors": list(self.errors),
+        }

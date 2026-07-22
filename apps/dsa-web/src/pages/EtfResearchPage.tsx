@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   ArrowUpRight,
@@ -14,6 +15,7 @@ import {
   ShieldCheck,
   Sparkles,
 } from 'lucide-react';
+import { etfResearchApi, type EtfMarketOverviewResponse } from '../api/etfResearch';
 
 type MarketIndex = {
   name: string;
@@ -63,19 +65,22 @@ type MarketOverview = {
   note: string;
 };
 
-const marketIndices: MarketIndex[] = [
+const fallbackMarketIndices: MarketIndex[] = [
   { name: '沪深300', code: '000300.SH', change: '+0.42%', turnover: '2,846 亿', tone: 'up' },
   { name: '中证500', code: '000905.SH', change: '-0.18%', turnover: '1,924 亿', tone: 'down' },
   { name: '创业板指', code: '399006.SZ', change: '+1.16%', turnover: '2,103 亿', tone: 'up' },
   { name: '科创50', code: '000688.SH', change: '+1.88%', turnover: '687 亿', tone: 'up' },
 ];
 
-const marketOverview: MarketOverview[] = [
+const fallbackMarketOverview: MarketOverview[] = [
   { label: '上涨行业', value: '21 / 31', note: '行业扩散度偏积极' },
   { label: 'ETF 成交额', value: '1,186 亿', note: '较20日均值 +14%' },
   { label: '强势风格', value: '成长', note: '创业板、科创相对占优' },
   { label: '风险温度', value: '中性偏暖', note: '波动未显著放大' },
 ];
+
+const fallbackMarketSummary =
+  '今日全市场不是单一指数推动：创业板与科创相对更强，行业上涨家数超过半数，ETF 成交额较近20日均值放大。因此首页优先提示可继续跟踪的行业线索，而不是给出买卖判断。';
 
 const focusIndustries: FocusIndustry[] = [
   {
@@ -177,6 +182,40 @@ const toneClass = {
 const recommendedIndustry = focusIndustries[0];
 
 const EtfResearchPage: React.FC = () => {
+  const [marketData, setMarketData] = useState<EtfMarketOverviewResponse | null>(null);
+  const [marketDataLoading, setMarketDataLoading] = useState(true);
+  const [marketDataError, setMarketDataError] = useState<string | null>(null);
+
+  const loadMarketData = async () => {
+    setMarketDataLoading(true);
+    setMarketDataError(null);
+    try {
+      const response = await etfResearchApi.getMarketOverview();
+      setMarketData(response);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'AkShare market overview unavailable';
+      setMarketDataError(message);
+    } finally {
+      setMarketDataLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadMarketData();
+  }, []);
+
+  const resolvedMarketIndices = useMemo(
+    () => (marketData?.marketIndices.length ? marketData.marketIndices : fallbackMarketIndices),
+    [marketData]
+  );
+  const resolvedMarketOverview = useMemo(
+    () => (marketData?.overview.length ? marketData.overview : fallbackMarketOverview),
+    [marketData]
+  );
+  const marketSummary = marketData?.summary || fallbackMarketSummary;
+  const dataDate = marketData?.dataDate || '2026-07-21';
+  const dataSourceLabel = marketData ? 'AkShare' : '样例数据';
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="sticky top-0 z-20 border-b border-border/80 bg-card/95 backdrop-blur">
@@ -201,15 +240,15 @@ const EtfResearchPage: React.FC = () => {
           <div className="flex flex-wrap items-center gap-2 text-xs text-secondary-text">
             <span className="inline-flex items-center gap-1.5 rounded-[6px] border border-border bg-background px-2.5 py-1">
               <CalendarDays className="h-4 w-4 text-primary" />
-              2026-07-21
+              {dataDate}
             </span>
             <span className="inline-flex items-center gap-1.5 rounded-[6px] border border-border bg-background px-2.5 py-1">
               <Clock3 className="h-4 w-4 text-amber-500" />
-              数据更新 15:28
+              {marketDataLoading ? '数据更新中' : '日频数据'}
             </span>
             <span className="inline-flex items-center gap-1.5 rounded-[6px] border border-border bg-background px-2.5 py-1">
               <Database className="h-4 w-4 text-emerald-500" />
-              样例数据
+              {dataSourceLabel}
             </span>
           </div>
         </div>
@@ -228,10 +267,11 @@ const EtfResearchPage: React.FC = () => {
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
+              onClick={() => void loadMarketData()}
               className="inline-flex h-10 items-center gap-2 rounded-[6px] border border-border bg-card px-3 text-sm font-medium text-secondary-text transition-colors hover:bg-hover hover:text-foreground"
             >
               <RefreshCw className="h-4 w-4" />
-              刷新样例
+              {marketDataLoading ? '刷新中' : '刷新数据'}
             </button>
             <button
               type="button"
@@ -254,7 +294,7 @@ const EtfResearchPage: React.FC = () => {
                 <LineChart className="h-5 w-5 shrink-0 text-primary" />
               </div>
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                {marketIndices.map((item) => (
+                {resolvedMarketIndices.map((item) => (
                   <article key={item.code} className="rounded-[8px] border border-border/80 bg-background p-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -279,7 +319,7 @@ const EtfResearchPage: React.FC = () => {
                 <Sparkles className="h-5 w-5 shrink-0 text-primary" />
               </div>
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                {marketOverview.map((item) => (
+                {resolvedMarketOverview.map((item) => (
                   <article key={item.label} className="rounded-[8px] border border-border/80 bg-background p-3">
                     <div className="text-xs text-muted-text">{item.label}</div>
                     <div className="mt-1 text-lg font-semibold text-foreground">{item.value}</div>
@@ -288,8 +328,17 @@ const EtfResearchPage: React.FC = () => {
                 ))}
               </div>
               <div className="mt-4 rounded-[8px] border border-border/80 bg-background p-3 text-sm leading-6 text-secondary-text">
-                今日全市场不是单一指数推动：创业板与科创相对更强，行业上涨家数超过半数，ETF 成交额较近20日均值放大。
-                因此首页优先提示可继续跟踪的行业线索，而不是给出买卖判断。
+                {marketSummary}
+                {marketDataError ? (
+                  <span className="mt-2 block text-xs text-amber-600">
+                    AkShare 暂不可用，当前展示前端样例数据：{marketDataError}
+                  </span>
+                ) : null}
+                {marketData?.errors.length ? (
+                  <span className="mt-2 block text-xs text-amber-600">
+                    部分 AkShare 数据未返回：{marketData.errors.join('；')}
+                  </span>
+                ) : null}
               </div>
             </section>
 
