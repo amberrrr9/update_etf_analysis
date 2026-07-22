@@ -12,6 +12,7 @@ import {
   Newspaper,
   RefreshCw,
   ShieldCheck,
+  Sparkles,
 } from 'lucide-react';
 
 type MarketIndex = {
@@ -44,13 +45,22 @@ type ProductRow = {
 
 type FocusIndustry = {
   name: string;
+  navLabel: string;
+  category: string;
   indexName: string;
   indexCode: string;
   summary: string;
+  reason: string;
   evidence: EvidenceItem[];
   news: string[];
   risks: string[];
   products: ProductRow[];
+};
+
+type MarketOverview = {
+  label: string;
+  value: string;
+  note: string;
 };
 
 const marketIndices: MarketIndex[] = [
@@ -60,11 +70,21 @@ const marketIndices: MarketIndex[] = [
   { name: '科创50', code: '000688.SH', change: '+1.88%', turnover: '687 亿', tone: 'up' },
 ];
 
+const marketOverview: MarketOverview[] = [
+  { label: '上涨行业', value: '21 / 31', note: '行业扩散度偏积极' },
+  { label: 'ETF 成交额', value: '1,186 亿', note: '较20日均值 +14%' },
+  { label: '强势风格', value: '成长', note: '创业板、科创相对占优' },
+  { label: '风险温度', value: '中性偏暖', note: '波动未显著放大' },
+];
+
 const focusIndustries: FocusIndustry[] = [
   {
     name: '半导体',
+    navLabel: '半导体',
+    category: '科技制造',
     indexName: '中证半导体产业指数',
     indexCode: 'H30184.CSI',
+    reason: '相对强度、成交放大、成分股广度同时触发。',
     summary:
       '半导体方向今日表现强于主要宽基，近一周相对收益扩大，行业内部上涨扩散度较高；公开信息主要集中在设备国产化、AI 算力链需求和部分权重公司业绩预告。',
     evidence: [
@@ -104,8 +124,11 @@ const focusIndustries: FocusIndustry[] = [
   },
   {
     name: '创新药',
+    navLabel: '创新药',
+    category: '医药健康',
     indexName: '中证创新药产业指数',
     indexCode: '931152.CSI',
+    reason: '一周维度趋势延续，成交温和放大，新闻证据密度较高。',
     summary:
       '创新药指数近一周维持相对强势，成交额温和放大，主要贡献来自头部 CXO 与创新药企；新闻证据集中于医保谈判预期、海外授权交易和临床进展。',
     evidence: [
@@ -151,31 +174,55 @@ const toneClass = {
   flat: 'text-secondary-text',
 };
 
+const recommendedIndustry = focusIndustries[0];
+
 const EtfResearchPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto flex w-full max-w-[1480px] flex-col gap-5 px-4 py-4 sm:px-6 lg:px-8">
-        <header className="flex flex-col gap-4 border-b border-border/70 pb-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="min-w-0">
-            <div className="mb-2 flex flex-wrap items-center gap-2 text-sm text-secondary-text">
-              <span className="inline-flex items-center gap-1.5 rounded-[6px] border border-border bg-card px-2.5 py-1">
-                <CalendarDays className="h-4 w-4 text-primary" />
-                2026-07-21
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-[6px] border border-border bg-card px-2.5 py-1">
-                <Clock3 className="h-4 w-4 text-amber-500" />
-                数据更新 15:28
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-[6px] border border-border bg-card px-2.5 py-1">
-                <Database className="h-4 w-4 text-emerald-500" />
-                样例数据
-              </span>
+      <div className="sticky top-0 z-20 border-b border-border/80 bg-card/95 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-[1480px] flex-col gap-3 px-4 py-3 sm:px-6 lg:px-8">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] bg-primary text-primary-foreground">
+                <LineChart className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-base font-semibold text-foreground">AI ETF Research</div>
+                <div className="text-xs text-muted-text">Index-first daily market desk</div>
+              </div>
             </div>
+            <nav className="flex min-w-0 items-center gap-1 text-sm">
+              <a href="#market" className="shrink-0 rounded-[6px] bg-primary px-3 py-2 font-medium text-primary-foreground">
+                全市场
+              </a>
+            </nav>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 text-xs text-secondary-text">
+            <span className="inline-flex items-center gap-1.5 rounded-[6px] border border-border bg-background px-2.5 py-1">
+              <CalendarDays className="h-4 w-4 text-primary" />
+              2026-07-21
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-[6px] border border-border bg-background px-2.5 py-1">
+              <Clock3 className="h-4 w-4 text-amber-500" />
+              数据更新 15:28
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-[6px] border border-border bg-background px-2.5 py-1">
+              <Database className="h-4 w-4 text-emerald-500" />
+              样例数据
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="mx-auto flex w-full max-w-[1480px] flex-col gap-5 px-4 py-5 sm:px-6 lg:px-8">
+        <header id="market" className="flex scroll-mt-28 flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0">
             <h1 className="text-2xl font-semibold tracking-normal text-foreground sm:text-3xl">
-              AI ETF 每日研究
+              全市场 ETF 研究首页
             </h1>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-secondary-text">
-              市场整体风险偏好小幅修复，成长风格强于宽基，今日线索集中在半导体与创新药。以下内容仅呈现公开数据与证据链，不构成投资建议。
+            <p className="mt-2 max-w-4xl text-sm leading-6 text-secondary-text">
+              首页先观察市场环境、行业扩散、成交结构和风险温度，再进入具体行业。以下内容仅呈现公开数据与证据链，不构成投资建议。
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -223,22 +270,78 @@ const EtfResearchPage: React.FC = () => {
               </div>
             </section>
 
+            <section className="rounded-[8px] border border-border bg-card p-4 shadow-soft-card">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-base font-semibold text-foreground">市场环境总览</h2>
+                  <p className="mt-1 text-sm text-secondary-text">从全市场角度判断今天是否值得继续下钻行业</p>
+                </div>
+                <Sparkles className="h-5 w-5 shrink-0 text-primary" />
+              </div>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                {marketOverview.map((item) => (
+                  <article key={item.label} className="rounded-[8px] border border-border/80 bg-background p-3">
+                    <div className="text-xs text-muted-text">{item.label}</div>
+                    <div className="mt-1 text-lg font-semibold text-foreground">{item.value}</div>
+                    <div className="mt-1 text-xs leading-5 text-secondary-text">{item.note}</div>
+                  </article>
+                ))}
+              </div>
+              <div className="mt-4 rounded-[8px] border border-border/80 bg-background p-3 text-sm leading-6 text-secondary-text">
+                今日全市场不是单一指数推动：创业板与科创相对更强，行业上涨家数超过半数，ETF 成交额较近20日均值放大。
+                因此首页优先提示可继续跟踪的行业线索，而不是给出买卖判断。
+              </div>
+            </section>
+
             <section className="flex flex-col gap-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-base font-semibold text-foreground">近期关注行业</h2>
-                  <p className="mt-1 text-sm text-secondary-text">仅展示触发明确证据条件的行业指数</p>
+                  <h2 className="text-base font-semibold text-foreground">行业入口</h2>
+                  <p className="mt-1 text-sm text-secondary-text">从全市场页点击行业卡片进入具体证据链</p>
                 </div>
                 <ShieldCheck className="h-5 w-5 shrink-0 text-emerald-500" />
               </div>
 
+              <div className="grid gap-3 md:grid-cols-2">
+                {focusIndustries.map((industry) => (
+                  <a
+                    key={`${industry.indexCode}-entry`}
+                    href={`#industry-${industry.navLabel}`}
+                    className="group rounded-[8px] border border-border bg-card p-4 shadow-soft-card transition-colors hover:border-primary/50 hover:bg-hover"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-[6px] bg-primary/10 px-2.5 py-1 text-sm font-medium text-primary">
+                            {industry.name}
+                          </span>
+                          <span className="rounded-[6px] border border-border bg-background px-2.5 py-1 text-xs text-secondary-text">
+                            {industry.category}
+                          </span>
+                        </div>
+                        <h3 className="mt-3 text-sm font-semibold text-foreground">{industry.indexName}</h3>
+                        <p className="mt-2 line-clamp-2 text-sm leading-6 text-secondary-text">{industry.reason}</p>
+                      </div>
+                      <ArrowUpRight className="h-5 w-5 shrink-0 text-muted-text transition-colors group-hover:text-primary" />
+                    </div>
+                  </a>
+                ))}
+              </div>
+
               {focusIndustries.map((industry) => (
-                <article key={industry.indexCode} className="rounded-[8px] border border-border bg-card p-4 shadow-soft-card">
+                <article
+                  id={`industry-${industry.navLabel}`}
+                  key={industry.indexCode}
+                  className="scroll-mt-32 rounded-[8px] border border-border bg-card p-4 shadow-soft-card"
+                >
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div className="min-w-0">
                       <div className="mb-2 flex flex-wrap items-center gap-2">
                         <span className="rounded-[6px] bg-primary/10 px-2.5 py-1 text-sm font-medium text-primary">
                           {industry.name}
+                        </span>
+                        <span className="rounded-[6px] border border-border bg-background px-2.5 py-1 text-xs text-secondary-text">
+                          {industry.category}
                         </span>
                         <span className="text-sm text-secondary-text">
                           {industry.indexName} · {industry.indexCode}
@@ -347,6 +450,39 @@ const EtfResearchPage: React.FC = () => {
           </section>
 
           <aside className="flex flex-col gap-5">
+            <section className="rounded-[8px] border border-primary/30 bg-card p-4 shadow-soft-card">
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] bg-primary/10 text-primary">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-base font-semibold text-foreground">推荐关注行业</h2>
+                  <p className="mt-1 text-sm leading-6 text-secondary-text">
+                    {recommendedIndustry.name} · {recommendedIndustry.indexName}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 rounded-[8px] border border-border/80 bg-background p-3">
+                <div className="text-sm font-medium text-foreground">{recommendedIndustry.reason}</div>
+                <p className="mt-2 text-sm leading-6 text-secondary-text">{recommendedIndustry.summary}</p>
+              </div>
+              <div className="mt-3 grid gap-2">
+                {recommendedIndustry.evidence.slice(0, 3).map((item) => (
+                  <div key={item.label} className="flex items-center justify-between gap-3 rounded-[6px] bg-background px-3 py-2 text-sm">
+                    <span className="text-secondary-text">{item.label}</span>
+                    <span className="font-semibold text-foreground">{item.value}</span>
+                  </div>
+                ))}
+              </div>
+              <a
+                href={`#industry-${recommendedIndustry.navLabel}`}
+                className="mt-4 inline-flex h-9 w-full items-center justify-center gap-2 rounded-[6px] bg-primary text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+              >
+                查看行业证据
+                <ArrowUpRight className="h-4 w-4" />
+              </a>
+            </section>
+
             <section className="rounded-[8px] border border-border bg-card p-4 shadow-soft-card">
               <h2 className="text-base font-semibold text-foreground">日报状态</h2>
               <div className="mt-4 space-y-3">

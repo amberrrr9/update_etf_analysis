@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 > For user-friendly release highlights, see the [GitHub Releases](https://github.com/ZhuLinsen/daily_stock_analysis/releases) page.
 
 ## [Unreleased]
+- [改进] ETF 研究首页调整为全市场视角，顶部仅保留全市场入口，行业详情改为从首页行业卡片跳转。
 - [新功能] 新增 ETF 每日研究静态网页框架，先以本地样例数据呈现市场研究、关注行业和基金产品表。
 - [新功能] 新增独立 ETF 研究领域包，提供无综合评分的行业线索识别、ETF 映射和知识库 CSV 加载基础能力。
 - [修复] 桌面与 Docker 发布显式安装 `orjson`，桌面 PyInstaller 产物同时冻结并执行运行时导入探针，避免 LiteLLM 调用时报 `No module named 'orjson'`。
