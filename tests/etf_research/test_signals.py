@@ -3,7 +3,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from src.etf_research.scoring import calculate_index_health_score
+from src.etf_research.signals import discover_industry_clue
 
 
 def _bars(start: float, step: float, days: int = 80, amount: float = 100.0) -> pd.DataFrame:
@@ -20,45 +20,45 @@ def _bars(start: float, step: float, days: int = 80, amount: float = 100.0) -> p
     )
 
 
-def test_calculate_index_health_score_rewards_strong_index_vs_benchmark():
-    index_bars = _bars(100, 1.2)
-    benchmark_bars = _bars(100, 0.25)
+def test_discover_industry_clue_outputs_trigger_evidence_without_score():
+    index_bars = _bars(100, 3)
+    benchmark_bars = _bars(100, 0.1)
 
-    result = calculate_index_health_score(
+    result = discover_industry_clue(
         index_code="H30184",
         index_name="中证半导体产业指数",
         bars=index_bars,
         benchmark_bars=benchmark_bars,
         breadth_up_ratio=0.72,
+        source="unit-test",
     )
 
-    assert result.score >= 70
-    assert result.components["trend"].available is True
-    assert result.components["relative_strength"].score is not None
-    assert result.components["breadth"].score == pytest.approx(3.6)
-    assert result.data_quality == {}
+    payload = result.to_dict()
+    metrics = {item.metric for item in result.trigger_evidence}
+
+    assert "score" not in payload
+    assert "weekly_return_pct" in metrics
+    assert "weekly_relative_strength_pct" in metrics
+    assert "constituent_up_ratio" in metrics
+    assert "focus_eligibility" not in result.data_quality
 
 
-def test_calculate_index_health_score_marks_optional_inputs_unavailable():
-    index_bars = _bars(100, 0.2)
-
-    result = calculate_index_health_score(
+def test_discover_industry_clue_marks_optional_inputs_unavailable():
+    result = discover_industry_clue(
         index_code="000300",
         index_name="沪深300",
-        bars=index_bars.drop(columns=["amount"]),
+        bars=_bars(100, 0.05).drop(columns=["amount"]),
     )
 
-    assert 0 <= result.score <= 100
-    assert result.components["relative_strength"].available is False
-    assert result.components["breadth"].available is False
-    assert result.components["volume"].available is False
+    assert result.data_quality["turnover"] == "amount_or_volume_unavailable"
     assert result.data_quality["relative_strength"] == "benchmark_unavailable"
     assert result.data_quality["breadth"] == "breadth_unavailable"
+    assert "focus_eligibility" in result.data_quality
 
 
-def test_calculate_index_health_score_requires_close_history():
+def test_discover_industry_clue_requires_close_history():
     with pytest.raises(ValueError, match="at least 20"):
-        calculate_index_health_score(
+        discover_industry_clue(
             index_code="SHORT",
             index_name="Short History",
             bars=pd.DataFrame({"close": [1, 2, 3]}),

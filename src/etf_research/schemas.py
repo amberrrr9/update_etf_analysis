@@ -1,9 +1,4 @@
-"""Schemas for ETF/index research.
-
-The first ETF research MVP uses lightweight dataclasses instead of extending
-the existing stock-oriented AnalysisResult. This keeps the new domain separate
-from buy/sell decision reports.
-"""
+"""Schemas for ETF/index research."""
 
 from __future__ import annotations
 
@@ -12,35 +7,38 @@ from typing import Any, Dict, List, Optional
 
 
 @dataclass(frozen=True)
-class ScoreComponent:
-    """One deterministic component of an index health score."""
+class TriggerEvidence:
+    """One transparent reason an industry/index deserves research attention."""
 
-    name: str
-    score: Optional[float]
-    weight: float
-    detail: str
-    available: bool = True
+    metric: str
+    value: Any
+    condition: str
+    description: str
+    data_date: str = ""
+    source: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
 
 
 @dataclass(frozen=True)
-class IndexHealthScore:
-    """Rule-based health score for an index research object."""
+class IndustryClue:
+    """Research clue for an industry index.
+
+    This is not a score or rating. It only records which deterministic
+    conditions were triggered and which optional evidence was unavailable.
+    """
 
     index_code: str
     index_name: str
-    score: int
-    components: Dict[str, ScoreComponent]
+    trigger_evidence: List[TriggerEvidence]
     data_quality: Dict[str, str] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "index_code": self.index_code,
             "index_name": self.index_name,
-            "score": self.score,
-            "components": {key: value.to_dict() for key, value in self.components.items()},
+            "trigger_evidence": [item.to_dict() for item in self.trigger_evidence],
             "data_quality": dict(self.data_quality),
         }
 

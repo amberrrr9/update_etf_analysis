@@ -7,7 +7,7 @@ analysis system to an index-centered ETF research assistant.
 
 - Explain rather than predict.
 - Analyze indices before ETFs whenever multiple ETFs track the same index.
-- Use deterministic quantitative models for scoring.
+- Use deterministic rules for evidence and clue discovery.
 - Use LLMs only for interpretation and summarization.
 - Do not produce buy/sell, target price, stop-loss, take-profit or position advice.
 
@@ -16,7 +16,7 @@ analysis system to an index-centered ETF research assistant.
 ```text
 Market data
 -> underlying index
--> deterministic index health score
+-> deterministic industry clue discovery
 -> industry / theme knowledge
 -> LLM explanation
 -> mapped ETFs
@@ -37,25 +37,22 @@ src/etf_research/
   etf_mapping.py
 ```
 
-`scoring.py` is the core of the MVP. It calculates a deterministic
-`IndexHealthScore` from index OHLCV data and optional benchmark/breadth data.
+`signals.py` is the core of the MVP. It discovers transparent industry research
+clues from index OHLCV data and optional benchmark/breadth data. It does not
+produce a score, rating, rank or trading signal.
 
-## Scoring Model
+## Clue Discovery Rules
 
-The first version uses seven rule-based components:
+The first version records triggered evidence conditions:
 
-| Component | Weight |
-| --- | ---: |
-| Trend | 25 |
-| Momentum | 20 |
-| Relative strength | 20 |
-| Volume | 10 |
-| Volatility | 10 |
-| Drawdown | 10 |
-| Breadth | 5 |
+- Daily return exceeds a transparent absolute threshold.
+- Weekly return exceeds a transparent absolute threshold.
+- Weekly relative strength versus a broad benchmark is notable.
+- Turnover/amount is elevated versus the recent 20-day average.
+- Constituent breadth is available and broad enough.
 
 Unavailable optional inputs are marked in `data_quality` and excluded from the
-denominator instead of being silently treated as bearish signals.
+research explanation instead of being silently treated as negative evidence.
 
 ## Next Steps
 

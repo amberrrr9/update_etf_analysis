@@ -5,7 +5,7 @@ pipeline. ETF research should use deterministic scoring first and reserve LLMs
 for explanation only.
 """
 
-from src.etf_research.scoring import calculate_index_health_score
-from src.etf_research.schemas import IndexHealthScore
+from src.etf_research.schemas import IndustryClue
+from src.etf_research.signals import discover_industry_clue
 
-__all__ = ["IndexHealthScore", "calculate_index_health_score"]
+__all__ = ["IndustryClue", "discover_industry_clue"]
