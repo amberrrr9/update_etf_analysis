@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+from contextlib import contextmanager
 from datetime import datetime
 from typing import Any, Iterable, List, Optional, Sequence
 
@@ -11,13 +13,47 @@ from src.etf_research.schemas import EtfMarketOverview, MarketIndexSnapshot, Mar
 
 
 INDEX_WATCHLIST = (
-    ("000001", "上证指数"),
-    ("399001", "深证成指"),
-    ("000300", "沪深300"),
-    ("000905", "中证500"),
-    ("399006", "创业板指"),
-    ("000688", "科创50"),
+    ("000001", "上证指数", "sh000001", "sh000001"),
+    ("399001", "深证成指", "sz399001", "sz399001"),
+    ("000300", "沪深300", "sh000300", "sh000300"),
+    ("000905", "中证500", "sh000905", "sh000905"),
+    ("399006", "创业板指", "sz399006", "sz399006"),
+    ("000688", "科创50", "sh000688", "sh000688"),
 )
+
+PROXY_ENV_KEYS = (
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "ALL_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "all_proxy",
+)
+
+
+@contextmanager
+def _without_proxy_env():
+    """Run AkShare calls without inheriting broken local proxy variables."""
+
+    previous_values = {key: os.environ.get(key) for key in PROXY_ENV_KEYS}
+    previous_no_proxy = {key: os.environ.get(key) for key in ("NO_PROXY", "no_proxy")}
+    try:
+        for key in PROXY_ENV_KEYS:
+            os.environ.pop(key, None)
+        os.environ["NO_PROXY"] = "*"
+        os.environ["no_proxy"] = "*"
+        yield
+    finally:
+        for key, value in previous_values.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        for key, value in previous_no_proxy.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
 
 
 def _first_existing_column(df: pd.DataFrame, candidates: Sequence[str]) -> Optional[str]:
@@ -79,6 +115,14 @@ def _rows_by_code(df: pd.DataFrame, code_column: str) -> dict[str, pd.Series]:
     return rows
 
 
+def _normalize_index_code(value: Any) -> str:
+    text = str(value or "").strip().lower()
+    for prefix in ("sh", "sz", "csi"):
+        if text.startswith(prefix):
+            return text[len(prefix) :]
+    return text
+
+
 def _build_index_snapshots(index_df: pd.DataFrame) -> List[MarketIndexSnapshot]:
     code_column = _first_existing_column(index_df, ("代码", "指数代码", "symbol", "code"))
     name_column = _first_existing_column(index_df, ("名称", "指数名称", "name"))
@@ -88,9 +132,14 @@ def _build_index_snapshots(index_df: pd.DataFrame) -> List[MarketIndexSnapshot]:
     if not code_column:
         return []
 
-    by_code = _rows_by_code(index_df, code_column)
+    by_code = {}
+    for _, row in index_df.iterrows():
+        normalized_code = _normalize_index_code(row.get(code_column))
+        if normalized_code:
+            by_code[normalized_code] = row
+
     snapshots: List[MarketIndexSnapshot] = []
-    for code, fallback_name in INDEX_WATCHLIST:
+    for code, fallback_name, _, _ in INDEX_WATCHLIST:
         row = by_code.get(code)
         if row is None:
             continue
@@ -107,6 +156,79 @@ def _build_index_snapshots(index_df: pd.DataFrame) -> List[MarketIndexSnapshot]:
             )
         )
     return snapshots
+
+
+def _build_index_snapshots_from_tx_daily(ak: Any, errors: List[str]) -> List[MarketIndexSnapshot]:
+    snapshots: List[MarketIndexSnapshot] = []
+    for code, fallback_name, _, tx_symbol in INDEX_WATCHLIST:
+        try:
+            with _without_proxy_env():
+                df = ak.stock_zh_index_daily_tx(symbol=tx_symbol)
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"{fallback_name} 腾讯日线获取失败: {exc}")
+            continue
+        if df.empty or len(df) < 2:
+            errors.append(f"{fallback_name} 腾讯日线数据不足")
+            continue
+        latest = df.iloc[-1]
+        previous = df.iloc[-2]
+        latest_close = _safe_float(latest.get("close"))
+        previous_close = _safe_float(previous.get("close"))
+        change_pct = (
+            ((latest_close - previous_close) / previous_close) * 100
+            if latest_close is not None and previous_close not in (None, 0)
+            else None
+        )
+        amount = _safe_float(latest.get("amount"))
+        snapshots.append(
+            MarketIndexSnapshot(
+                name=fallback_name,
+                code=code,
+                change=_format_pct(change_pct),
+                turnover=_format_amount_yi(amount),
+                tone=_tone(change_pct),
+            )
+        )
+    return snapshots
+
+
+def _fetch_index_snapshots(ak: Any, errors: List[str]) -> List[MarketIndexSnapshot]:
+    try:
+        with _without_proxy_env():
+            sina_df = ak.stock_zh_index_spot_sina()
+        snapshots = _build_index_snapshots(sina_df)
+        if len(snapshots) >= 4:
+            return snapshots
+        errors.append(f"新浪实时指数只返回 {len(snapshots)} 个主要指数，尝试腾讯日线兜底")
+    except Exception as exc:  # noqa: BLE001 - data source errors are surfaced.
+        errors.append(f"新浪指数行情获取失败: {exc}")
+
+    snapshots = _build_index_snapshots_from_tx_daily(ak, errors)
+    if snapshots:
+        return snapshots
+
+    try:
+        with _without_proxy_env():
+            em_df = ak.stock_zh_index_spot_em(symbol="沪深重要指数")
+        return _build_index_snapshots(em_df)
+    except Exception as exc:  # noqa: BLE001
+        errors.append(f"东方财富指数行情获取失败: {exc}")
+        return []
+
+
+def _fetch_industry_df(ak: Any, errors: List[str]) -> pd.DataFrame:
+    try:
+        with _without_proxy_env():
+            return ak.stock_board_industry_summary_ths()
+    except Exception as exc:  # noqa: BLE001
+        errors.append(f"同花顺行业概览获取失败: {exc}")
+
+    try:
+        with _without_proxy_env():
+            return ak.stock_board_industry_name_em()
+    except Exception as exc:  # noqa: BLE001
+        errors.append(f"东方财富行业板块获取失败: {exc}")
+        return pd.DataFrame()
 
 
 def _count_positive(values: Iterable[Any]) -> tuple[int, int]:
@@ -172,25 +294,17 @@ def build_market_overview() -> EtfMarketOverview:
 
     data_date = datetime.now().date().isoformat()
 
-    try:
-        index_df = ak.stock_zh_index_spot_em()
-    except Exception as exc:  # noqa: BLE001 - data source errors are surfaced.
-        index_df = pd.DataFrame()
-        errors.append(f"指数行情获取失败: {exc}")
+    index_snapshots = _fetch_index_snapshots(ak, errors)
 
     try:
-        etf_df = ak.fund_etf_spot_em()
+        with _without_proxy_env():
+            etf_df = ak.fund_etf_spot_em()
     except Exception as exc:  # noqa: BLE001
         etf_df = pd.DataFrame()
         errors.append(f"ETF 行情获取失败: {exc}")
 
-    try:
-        industry_df = ak.stock_board_industry_name_em()
-    except Exception as exc:  # noqa: BLE001
-        industry_df = pd.DataFrame()
-        errors.append(f"行业板块获取失败: {exc}")
+    industry_df = _fetch_industry_df(ak, errors)
 
-    index_snapshots = _build_index_snapshots(index_df) if not index_df.empty else []
     industry_change_column = _first_existing_column(industry_df, ("涨跌幅", "涨跌幅%", "change_pct", "pct_chg"))
     industry_positive, industry_total = (
         _count_positive(industry_df[industry_change_column].tolist())
@@ -230,7 +344,7 @@ def build_market_overview() -> EtfMarketOverview:
             f"行业上涨 {industry_positive}/{industry_total}，ETF 成交额约 {_format_amount_yi(etf_amount)}。"
         )
     else:
-        summary = "AkShare 暂未返回可用主要指数数据，页面应继续使用前端样例数据。"
+        summary = "AkShare 暂未返回可用主要指数数据。"
 
     return EtfMarketOverview(
         data_date=data_date,
